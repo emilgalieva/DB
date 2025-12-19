@@ -91,7 +91,7 @@ class SettingsView(arcade.View):
         self.settings_batch = Batch()
         lever_funcs = (self.change_volume, self.change_brightness, self.change_hud_size)
         lever_text = ("Brightness", "Volume", "HUD size")
-        lever_textures = ("lever_settings.png", "lever_settings.png", "lever_settings.png")
+        lever_textures = ("assets/Settings/lever_settings.png", "assets/Settings/lever_settings.png", "assets/Settings/lever_settings.png")
         self.lever_list = arcade.SpriteList()
         self.button_list = arcade.SpriteList()
         self.text_list = []
@@ -105,7 +105,7 @@ class SettingsView(arcade.View):
             self.text_list.append(arcade.Text(lever_text[i], 100, SCREEN_HEIGHT -
                                               SettingsView.UP_SPACE - i * SettingsView.CELL_SIZE,
                                               batch=self.settings_batch))
-        self.button_list.append(Button("button_back_to_menu.png", 1, 300, SCREEN_HEIGHT -
+        self.button_list.append(Button("assets/Settings/button_back_to_menu.png", 1, 300, SCREEN_HEIGHT -
                                               SettingsView.UP_SPACE - len(lever_funcs) * SettingsView.CELL_SIZE,0,
                                        self.to_main_menu))
 
@@ -168,7 +168,8 @@ class StartView(arcade.View):
         self.cell_size = (self.window.height - 150) // 4
         self.menu_batch = Batch()
         self.menu_elements = arcade.SpriteList()
-        menu_textures = ("button_new_game.png", "button_load_game.png", "button_settings.png", "button_endings.png")
+        menu_textures = ("assets/MainMenu/button_new_game.png", "assets/MainMenu/button_load_game.png",
+                         "assets/MainMenu/button_settings.png", "assets/MainMenu/button_endings.png")
         menu_funcs = (self.new_game, self.load_game, self.settings, self.endings)
         for i in range(4):
             self.menu_elements.append(Button(menu_textures[i], 0.5, 200,

@@ -1,6 +1,4 @@
 import enum
-from zipfile import compressor_names
-
 import arcade
 from pyglet.graphics import Batch
 from settings import *
@@ -292,8 +290,9 @@ class BaseLevel(arcade.View):
             self.player_list[0].change_y /= delta_time
 
     def on_key_press(self, symbol: int, modifiers: int) -> bool | None:
-        self.keyboard_pressed.add(symbol)
-        if symbol == arcade.key.LSHIFT or symbol == arcade.key.RSHIFT:
+        if symbol in (arcade.key.W, arcade.key.A, arcade.key.S, arcade.key.D):
+            self.keyboard_pressed.add(symbol)
+        elif symbol == arcade.key.LSHIFT or symbol == arcade.key.RSHIFT:
             self.player_list[0].shift_pressed = True
 
     def on_key_release(self, symbol: int, modifiers: int) -> bool | None:
@@ -311,7 +310,7 @@ class BaseLevel(arcade.View):
 
 
 if __name__ == "__main__":
-    window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, "Deadly Bite")
+    window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, "Deadly Bite", resizable=True)
     start_view = StartView()
     window.show_view(start_view)
     arcade.run()

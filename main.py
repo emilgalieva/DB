@@ -1,11 +1,22 @@
+import enum
+from zipfile import compressor_names
+
 import arcade
 from pyglet.graphics import Batch
+from settings import *
+from engine.Player import Player
 
 SCREEN_WIDTH = 1280
 SCREEN_HEIGHT = 720
-class Player(arcade.Sprite):
-    def __init__(self, path_or_texture, scale, center_x, center_y):
-        super().__init__(path_or_texture, scale, center_x, center_y, 0)
+
+class Items(enum.Enum):
+    PISTOL = 1
+    SUBMACHINE_GUN = 2
+    AK_47 = 3
+    MEDICINE = 4
+    PAIN_KILLER = 5
+    PISTOL_AMMO = 6
+    AK_47_AMMO = 7
 
 
 class Button(arcade.Sprite):
@@ -55,15 +66,13 @@ class NewGameView(arcade.View):
     def __init__(self, parent):
         super().__init__()
         self.parent = parent
-        self.temp_batch = Batch()
-        self.temp_text = arcade.Text("Under Construction", 100, self.window.height // 2, batch=self.temp_batch)
 
-    def on_show(self):
+    def on_show_view(self):
         arcade.set_background_color(arcade.color.BLACK)
+        self.window.show_view(self.parent.game_view)
 
     def on_draw(self):
         self.clear()
-        self.temp_batch.draw()
 
 
 class LoadGameView(arcade.View):
@@ -73,7 +82,7 @@ class LoadGameView(arcade.View):
         self.temp_batch = Batch()
         self.temp_text = arcade.Text("Under Construction", 100, self.window.height // 2, batch=self.temp_batch)
 
-    def on_show(self):
+    def on_show_view(self):
         arcade.set_background_color(arcade.color.BLACK)
 
     def on_draw(self):
@@ -91,7 +100,8 @@ class SettingsView(arcade.View):
         self.settings_batch = Batch()
         lever_funcs = (self.change_volume, self.change_brightness, self.change_hud_size)
         lever_text = ("Brightness", "Volume", "HUD size")
-        lever_textures = ("assets/Settings/lever_settings.png", "assets/Settings/lever_settings.png", "assets/Settings/lever_settings.png")
+        lever_textures = ("assets/Settings/lever_settings.png", "assets/Settings/lever_settings.png",
+                          "assets/Settings/lever_settings.png")
         self.lever_list = arcade.SpriteList()
         self.button_list = arcade.SpriteList()
         self.text_list = []
@@ -105,11 +115,11 @@ class SettingsView(arcade.View):
             self.text_list.append(arcade.Text(lever_text[i], 100, SCREEN_HEIGHT -
                                               SettingsView.UP_SPACE - i * SettingsView.CELL_SIZE,
                                               batch=self.settings_batch))
-        self.button_list.append(Button("assets/Settings/button_back_to_menu.png", 1, 300, SCREEN_HEIGHT -
-                                              SettingsView.UP_SPACE - len(lever_funcs) * SettingsView.CELL_SIZE,0,
+        self.button_list.append(Button("assets/Settings/button_back_to_menu.png", 1, 300, SCREEN_HEIGHT
+                                       - SettingsView.UP_SPACE - len(lever_funcs) * SettingsView.CELL_SIZE,0,
                                        self.to_main_menu))
 
-    def on_show(self):
+    def on_show_view(self):
         arcade.set_background_color(arcade.color.BLACK)
 
     def on_draw(self):
@@ -160,7 +170,7 @@ class EndingsView(arcade.View):
 class StartView(arcade.View):
     def __init__(self):
         super().__init__()
-        self.game_view = GameView(self)
+        self.game_view = BaseLevel("null_level.json")
         self.new_game_view = NewGameView(self)
         self.load_game_view = LoadGameView(self)
         self.settings_view = SettingsView(self)
@@ -174,7 +184,6 @@ class StartView(arcade.View):
         for i in range(4):
             self.menu_elements.append(Button(menu_textures[i], 0.5, 200,
                                              self.window.height - self.cell_size * (i + 1), func=menu_funcs[i]))
-
     def on_show_view(self) -> None:
         arcade.set_background_color(arcade.color.BLACK)
 
@@ -199,10 +208,106 @@ class StartView(arcade.View):
         self.window.show_view(self.endings_view)
 
 
-class GameView(arcade.View):
-    def __init__(self, parent):
-        super().__init__()
-        self.parent = parent
+class BaseLevel(arcade.View):
+    def __init__(self, tilemap_path):
+        super().__init__(background_color=(0, 0, 0))
+        self.tilemap = tilemap_path
+        self.player_list = arcade.SpriteList()
+        self.walls = None
+        self.background = None
+        self.ladders = None
+        self.physics_engine = None
+        self.keyboard_pressed = set()
+        self.scene = None
+
+    def on_show_view(self):
+        self.tilemap = arcade.load_tilemap(self.tilemap)
+        self.scene = arcade.Scene.from_tilemap(self.tilemap)
+        self.player_list.append(Player("assets/Player/idle/default_idle.png", 2,
+                                       *(200, 400)))
+        # self.items = arcade.SpriteList()
+        # self.exits = self.tilemap.sprite_lists["exits"]
+        self.walls = self.tilemap.sprite_lists["walls"]
+        self.ladders = self.tilemap.sprite_lists["ladders"]
+        self.background = self.tilemap.sprite_lists["background"]
+        self.physics_engine = arcade.PhysicsEnginePlatformer(self.player_list[0], gravity_constant=GRAVITY_CONSTANT,
+                                                             walls=self.walls, ladders=self.ladders)
+
+    def on_draw(self):
+        self.clear()
+        self.background.draw()
+        self.walls.draw()
+        self.ladders.draw()
+        self.player_list.draw()
+
+    def on_update(self, delta_time):
+        is_on_ladder = self.physics_engine.is_on_ladder()
+        can_jump = self.physics_engine.can_jump(1)
+        if self.player_list[0].buffer_jump_timer is not None:
+            self.player_list[0].buffer_jump_timer += delta_time
+            if self.player_list[0].buffer_jump_timer > PLAYER_JUMP_BUFFER:
+                self.player_list[0].buffer_jump_timer = None
+        if can_jump or is_on_ladder:
+            self.player_list[0].jumps = 0
+            self.player_list[0].change_y = 0
+            self.player_list[0].change_x = 0
+            if self.player_list[0].coyote_jump_timer is None:
+                self.player_list[0].coyote_jump_timer = 0
+            elif self.player_list[0].coyote_jump_timer <= PLAYER_JUMP_COYOTE_TIME:
+                self.player_list[0].coyote_jump_timer += delta_time
+                if self.player_list[0].coyote_jump_timer > PLAYER_JUMP_COYOTE_TIME:
+                    self.player_list[0].coyote_jump_timer = None
+            if arcade.key.A in self.keyboard_pressed:
+                self.player_list[0].change_x = (-self.player_list[0].walk_speed *
+                                                    (PLAYER_SPRINT_K if self.player_list[0].shift_pressed else 1))
+            if arcade.key.D in self.keyboard_pressed:
+                self.player_list[0].change_x = (self.player_list[0].walk_speed *
+                                                    (PLAYER_SPRINT_K if self.player_list[0].shift_pressed else 1))
+        elif self.player_list[0].change_x > 0:
+            self.player_list[0].change_x = max(self.player_list[0].change_x - X_SPEED_FALL * delta_time, 0)
+        elif self.player_list[0].change_x < 0:
+            self.player_list[0].change_x = min(self.player_list[0].change_x + X_SPEED_FALL * delta_time, 0)
+        if arcade.key.W in self.keyboard_pressed:
+            if is_on_ladder:
+                self.player_list[0].change_y = (self.player_list[0].climb_speed *
+                                                    (PLAYER_SPRINT_K if self.player_list[0].shift_pressed else 1))
+            elif can_jump or ((self.player_list[0].coyote_jump_timer is not None
+                               or self.player_list[0].buffer_jump_timer is not None)
+                              and self.player_list[0].jumps == 0):
+                self.player_list[0].change_x *= JUMP_X_BOOST_K
+                self.player_list[0].jumps = 1
+                self.physics_engine.jump(self.player_list[0].jump_speed)
+            else:
+                self.player_list[0].buffer_jump_timer = 0
+        if arcade.key.S in self.keyboard_pressed and is_on_ladder:
+            self.player_list[0].change_y = (-self.player_list[0].climb_speed *
+                                                    (PLAYER_SPRINT_K if self.player_list[0].shift_pressed else 1))
+        self.player_list[0].change_x *= delta_time
+        if is_on_ladder:
+            self.player_list[0].change_y *= delta_time
+        self.player_list[0].change_direction()
+        self.physics_engine.update()
+        self.player_list[0].change_x /= delta_time
+        if is_on_ladder:
+            self.player_list[0].change_y /= delta_time
+
+    def on_key_press(self, symbol: int, modifiers: int) -> bool | None:
+        self.keyboard_pressed.add(symbol)
+        if symbol == arcade.key.LSHIFT or symbol == arcade.key.RSHIFT:
+            self.player_list[0].shift_pressed = True
+
+    def on_key_release(self, symbol: int, modifiers: int) -> bool | None:
+        self.keyboard_pressed.discard(symbol)
+        if symbol == arcade.key.LSHIFT or symbol == arcade.key.RSHIFT:
+            self.player_list[0].shift_pressed = False
+
+    def on_mouse_press(self, x: int, y: int, button: int, modifiers: int) -> bool | None:
+        if button == arcade.MOUSE_BUTTON_RIGHT:
+            self.player_list[0].is_in_aiming = True
+
+    def on_mouse_release(self, x: int, y: int, button: int, modifiers: int) -> bool | None:
+        if button == arcade.MOUSE_BUTTON_RIGHT:
+            self.player_list[0].is_in_aiming = False
 
 
 if __name__ == "__main__":

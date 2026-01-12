@@ -3,23 +3,27 @@ import arcade
 from arcade import particles
 from settings import (BULLET_STEP, WEAPON_RECOIL_FALL_SPEED, BULLET_SMOKE_PARTICLE_LIFETIME,
                       BULLET_SMOKE_PARTICLE_TEXTURE, BULLET_SMOKE_PARTICLE_SPEED_Y, BULLET_SMOKE_PARTICLE_MAX_SPEED_X,
-                      BULLET_SMOKE_PARTICLES_COUNT)
+                      BULLET_SMOKE_PARTICLES_COUNT, BULLET_SMOKE_PARTICLES_INTERVAL)
 from math import asin, acos, degrees, radians, cos, sin
 from random import randint
 
 def create_smoke_emitter(x, y):
     return particles.Emitter(
         center_xy=(x, y),
-        emit_controller=particles.EmitBurst(BULLET_SMOKE_PARTICLES_COUNT),
+        emit_controller=particles.EmitterIntervalWithCount(BULLET_SMOKE_PARTICLES_INTERVAL, BULLET_SMOKE_PARTICLES_COUNT),
         particle_factory=lambda emitter: particles.LifetimeParticle(
-            filename_or_texture=BULLET_SMOKE_PARTICLE_TEXTURE,
+            filename_or_texture=arcade.make_soft_circle_texture(10, (150, 150, 150, 255), 100, 0),
             change_xy=(randint(int(-BULLET_SMOKE_PARTICLE_MAX_SPEED_X * 1000),
                                int(BULLET_SMOKE_PARTICLE_MAX_SPEED_X * 1000)) / 1000 / 60,
                        BULLET_SMOKE_PARTICLE_SPEED_Y / 60),
             lifetime=BULLET_SMOKE_PARTICLE_LIFETIME,
             scale=1,
-            alpha=255)
-        )
+            alpha=255, mutation_callback=smoke_mutation)
+    )
+
+def smoke_mutation(particle: particles.Particle, to_sub_per_frame=255 / BULLET_SMOKE_PARTICLE_LIFETIME / 60):
+    if particle.alpha > 0:
+        particle.alpha -= to_sub_per_frame
 
 class Bullet(arcade.Sprite):
     def __init__(self, path_or_texture, scale, center_x, center_y, angle, walls, enemies, damage, fall_speed,

@@ -1,7 +1,7 @@
 from settings import (PLAYER_MAX_HP, PLAYER_JUMP_SPEED, PLAYER_WALK_SPEED, PLAYER_CLIMB_SPEED,
                       PLAYER_JUMP_TIMEOUT, PLAYER_MAX_ENERGY, PLAYER_SPRINT_COST, PLAYER_ENERGY_RECOVERY_SPEED,
                       PLAYER_JUMP_BUFFER, PLAYER_JUMP_COYOTE_TIME, X_SPEED_FALL, PLAYER_JUMP_COST, JUMP_X_BOOST_K,
-                      PLAYER_SPRINT_K, SCREEN_HEIGHT, SCREEN_WIDTH)
+                      PLAYER_SPRINT_K, SCREEN_HEIGHT, SCREEN_WIDTH, PLAYER_INVENTORY_SIZE)
 import arcade
 from engine.Weapon import Weapon
 from math import asin, degrees, acos, cos, sin, radians
@@ -15,7 +15,6 @@ class Player(arcade.Sprite):
         self.buffer_jump_timer = None
         self.coyote_jump_timer = None
         self.can_jump = False
-        self.shot = None
         self.jump_timer = PLAYER_JUMP_TIMEOUT
         self.is_on_ladder = False
         self.is_in_aiming = False
@@ -40,15 +39,17 @@ class Player(arcade.Sprite):
 
     @hp.setter
     def hp(self, hp):
-        self._hp = min(hp, PLAYER_MAX_HP)
+        if isinstance(hp, int) or isinstance(hp, float):
+            self._hp = PLAYER_MAX_HP if hp > PLAYER_MAX_HP else 0 if hp < 0 else hp
 
     @property
     def energy(self):
         return self._energy
 
     @energy.setter
-    def energy(self, hp):
-        self._energy = min(hp, PLAYER_MAX_ENERGY)
+    def energy(self, energy):
+        if isinstance(energy, int) or isinstance(energy, float):
+            self._energy = PLAYER_MAX_ENERGY if energy > PLAYER_MAX_ENERGY else 0 if energy < 0 else energy
 
     def update(self, keyboard, mouse, delta_time):
         if self.jump_timer < PLAYER_JUMP_TIMEOUT:
@@ -127,6 +128,7 @@ class Player(arcade.Sprite):
             if gipoten != 0:
                 self.hands.angle = ((-90 - degrees(asin((mouse[1][1] - SCREEN_HEIGHT // 2 - self.hands.center_y
                                                          + self.center_y) / gipoten)))) * (1 if self.right_look else -1)
+        #gun particle systems update
         for el in self.particle_systems:
             el.update(delta_time)
             if el.can_reap():
@@ -152,17 +154,17 @@ class Player(arcade.Sprite):
 
 
     def change_curr_item(self, new_value):
-        if self.curr_item is not None:
-            self.draw_list.remove(self.inventory[self.curr_item])
-            if isinstance(self.inventory[self.curr_item], Weapon):
-                self.draw_list.remove(self.inventory[self.curr_item].bullet)
-        self.draw_list.append(self.inventory[new_value])
-        self.curr_item = new_value
+        if new_value < len(self.inventory):
+            if self.curr_item is not None:
+                self.draw_list.remove(self.inventory[self.curr_item])
+            self.draw_list.append(self.inventory[new_value])
+            self.curr_item = new_value
 
     def append_to_inventory(self, item):
-        self.inventory.append(item)
-        if isinstance(item, Weapon):
-            self.draw_list.append(item.bullet)
+        if len(self.inventory) < PLAYER_INVENTORY_SIZE:
+            self.inventory.append(item)
+            if isinstance(item, Weapon):
+                self.draw_list.append(item.bullet)
 
     def shoot(self):
         if self.curr_item is not None and isinstance(self.inventory[self.curr_item], Weapon):

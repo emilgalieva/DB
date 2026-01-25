@@ -74,13 +74,16 @@ def load_player(player: "Player"):
                                    WHERE id = 1""").fetchone()
         if new_current_level is not None:
             BaseLevel.current_level = new_current_level
-        #already has check
-        player.hp = cur.execute("""SELECT value FROM player WHERE id=2""").fetchone()
-        # already has check
-        player.energy = cur.execute("""SELECT value
+        temp = cur.execute("""SELECT value FROM player WHERE id=2""").fetchone()
+        if temp is not None:
+            BaseLevel.player._hp = temp
+        temp = cur.execute("""SELECT value
                                        FROM player
                                        WHERE id = 3""").fetchone()
+        if temp is not None:
+            BaseLevel.player._energy = temp
         new_inventory = cur.execute("""
             SELECT value FROM player WHERE id > 3
         """).fetchall()
-        player.inventory = [] if new_inventory is None else new_inventory
+        if new_inventory:
+            player.inventory = new_inventory

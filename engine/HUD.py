@@ -1,4 +1,6 @@
 import arcade
+
+
 class HUD(arcade.Sprite):
     def __init__(self, icon, scale, center_x, center_y, hud_width, hud_fill_color, hud_outline_color):
         super().__init__(icon, scale, center_x, center_y)

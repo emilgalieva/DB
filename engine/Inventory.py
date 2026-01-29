@@ -1,9 +1,8 @@
-import types
-from multiprocessing.forkserver import connect_to_new_process
-
 import arcade.gui
 from settings import SCREEN_HEIGHT, SCREEN_WIDTH
 from engine.Item import *
+
+
 class InventorySlot(arcade.gui.UITextureButton):
     def __init__(self, inventory_index: int, x: float = 0, y: float = 0, width: float | None = None,
                  height: float | None = None,
@@ -37,13 +36,12 @@ class InventorySlot(arcade.gui.UITextureButton):
         self.on_click = lambda event: connected_to(self)
         self.owner = owner
 
-
-
     def draw_item(self):
         if self.inventory_index != -1 and self.owner.inventory[self.inventory_index] is not None:
             self.item_texture = arcade.Texture(self.owner.inventory.inventory
                                                [self.inventory_index].texture.image)
-            k = (self.width - self.all_textures_outline * 2) / self.item_texture.width
+            k = (self.width - self.all_textures_outline * 2) / \
+                self.item_texture.width
             arcade.draw_texture_rect(self.item_texture, arcade.LBWH(self.center_x - self.width // 2
                                                                     + self.all_textures_outline, self.center_y -
                                                                     self.item_texture.height // 2 * k,
@@ -90,7 +88,7 @@ class Inventory(arcade.View):
     def __init__(self, std_inventory_size: int, width: int, slot_size: int,
                  distance_around_slots: int, slot_texture: arcade.Texture,
                  equipment_slots: Sequence[Sequence[int, arcade.Texture, int]], slot_on_forbidden_texture: arcade.Texture,
-                 slot_on_choice_texture: arcade.Texture, slot_for_dropping_texture: arcade.Texture, owner: "Player"):
+                 slot_on_choice_texture: arcade.Texture, slot_for_dropping_texture: arcade.Texture, owner):
         super().__init__(background_color=arcade.color.BLACK)
         self.background_color = (40, 40, 40)
         self.equipped_size = len(equipment_slots)
@@ -126,12 +124,13 @@ class Inventory(arcade.View):
         x = self.distance_around_slots
         to_sub_from_y = self.distance_around_slots + self.slot_size
         y = SCREEN_HEIGHT
+        i = -1
         for i in range(self.equipped_size):
             y -= to_sub_from_y
             self.slots.append(InventorySlot(
                 i, x, y, self.slot_size, self.slot_size, self.equipment_slots[i][1],
                 self.slot_on_forbidden_texture, self.slot_on_choice_texture, 0.5, 5, owner=self.owner,
-                    connected_to=self.slot_pressed))
+                connected_to=self.slot_pressed))
         y = SCREEN_HEIGHT - self.distance_around_slots - self.slot_size
         i += 1
         quit_flag = False
@@ -145,14 +144,14 @@ class Inventory(arcade.View):
                 self.slots.append(InventorySlot(
                     i, x, y, self.slot_size, self.slot_size, self.slot_texture,
                     self.slot_on_forbidden_texture, self.slot_on_choice_texture, 0.5, 5, owner=self.owner,
-                        connected_to=self.slot_pressed))
+                    connected_to=self.slot_pressed))
                 i += 1
             if quit_flag:
                 break
             y -= to_sub_from_y
         self.slots.append(InventorySlot(-1, SCREEN_WIDTH - self.slot_size - 5, SCREEN_HEIGHT - self.slot_size - 5,
                                         self.slot_size, self.slot_size,
-                                            texture=self.slot_for_dropping_texture,
+                                        texture=self.slot_for_dropping_texture,
                                         texture_on_choice=self.slot_on_choice_texture,
                                         texture_on_forbidden_doing=self.slot_on_choice_texture,
                                         all_textures_outline=5, connected_to=self.slot_pressed))
@@ -181,7 +180,8 @@ class Inventory(arcade.View):
                 self.slots[-1].on_forbidden_doing()
                 self.owner.level_items.append(
                     self.inventory[temp_list[0]])
-                self.inventory[temp_list[0]].position = (self.owner.center_x, self.owner.center_y)
+                self.inventory[temp_list[0]].position = (
+                    self.owner.center_x, self.owner.center_y)
                 self.return_to.drop(self.inventory[temp_list[0]])
                 self.inventory[temp_list[0]] = None
                 if temp_list[0] < self.equipped_size:
@@ -217,16 +217,18 @@ class Inventory(arcade.View):
             if two_items_indexes[0] != two_items_indexes[1] and not all(none_in_chosen):
                 if (a == -1 and not all(none_in_chosen) and all(none_in_chosen[i]
                    or (self.inventory[el].equip_place in (EquippableItem.ANY,
-                        self.equipment_slots[two_items_indexes[(i + 1) % 2]][0]))
-                                            for i, el in enumerate(two_items_indexes))):
+                                                          self.equipment_slots[two_items_indexes[(i + 1) % 2]][0]))
+                        for i, el in enumerate(two_items_indexes))):
                     pass
                 elif a != -1 and (none_in_chosen[(a + 1) % 2]
-                    or (((isinstance(self.inventory[two_items_indexes[(a + 1) % 2]], EquippableItem)
-                      and self.inventory[two_items_indexes[(a + 1) % 2]].equip_place
-                      in (self.equipment_slots[two_items_indexes[a]][0], EquippableItem.ANY))))):
+                                  or (((isinstance(self.inventory[two_items_indexes[(a + 1) % 2]], EquippableItem)
+                                        and self.inventory[two_items_indexes[(a + 1) % 2]].equip_place
+                                        in (self.equipment_slots[two_items_indexes[a]][0], EquippableItem.ANY))))):
                     if not none_in_chosen[(a + 1) % 2]:
-                        self.inventory[two_items_indexes[(a + 1) % 2]].use(self.owner)
-                        self.inventory[two_items_indexes[(a + 1) % 2]].set_angle(0, self.owner.right_look, None)
+                        self.inventory[two_items_indexes[(
+                            a + 1) % 2]].use(self.owner)
+                        self.inventory[two_items_indexes[(
+                            a + 1) % 2]].set_angle(0, self.owner.right_look, None)
                     elif not none_in_chosen[a]:
                         self.inventory[two_items_indexes[a]].unuse()
                 elif not all(none_in_chosen):
@@ -247,4 +249,3 @@ class Inventory(arcade.View):
     def on_key_press(self, symbol: int, modifiers: int) -> bool | None:
         if symbol == arcade.key.Q:
             self.window.show_view(self.return_to)
-

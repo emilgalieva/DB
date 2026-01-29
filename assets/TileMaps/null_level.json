@@ -113,42 +113,6 @@
                  "y":540.5
                 }, 
                 {
-                 "gid":1038,
-                 "height":31.25,
-                 "id":79,
-                 "name":"",
-                 "properties":[
-                        {
-                         "name":"item_id",
-                         "type":"int",
-                         "value":2
-                        }],
-                 "rotation":0,
-                 "type":"",
-                 "visible":true,
-                 "width":75,
-                 "x":157,
-                 "y":671.833333333333
-                }, 
-                {
-                 "gid":1040,
-                 "height":25,
-                 "id":80,
-                 "name":"",
-                 "properties":[
-                        {
-                         "name":"item_id",
-                         "type":"int",
-                         "value":1
-                        }],
-                 "rotation":0,
-                 "type":"",
-                 "visible":true,
-                 "width":60,
-                 "x":44.2272727272727,
-                 "y":639.909090909091
-                }, 
-                {
                  "gid":1046,
                  "height":20,
                  "id":81,
@@ -183,42 +147,41 @@
                  "width":20,
                  "x":407.333333333333,
                  "y":704.666666666667
-                }, 
+                }],
+         "opacity":1,
+         "type":"objectgroup",
+         "visible":true,
+         "x":0,
+         "y":0
+        }, 
+        {
+         "draworder":"topdown",
+         "id":10,
+         "name":"zombie",
+         "objects":[
                 {
-                 "gid":1042,
-                 "height":40,
-                 "id":88,
+                 "gid":1050,
+                 "height":57,
+                 "id":94,
                  "name":"",
-                 "properties":[
-                        {
-                         "name":"item_id",
-                         "type":"int",
-                         "value":7
-                        }],
                  "rotation":0,
                  "type":"",
                  "visible":true,
-                 "width":21.8181818181818,
-                 "x":36.7272727272727,
-                 "y":495.272727272727
+                 "width":43,
+                 "x":684.333333333333,
+                 "y":285
                 }, 
                 {
-                 "gid":1044,
-                 "height":23.2727272727273,
-                 "id":89,
+                 "gid":1050,
+                 "height":57,
+                 "id":96,
                  "name":"",
-                 "properties":[
-                        {
-                         "name":"item_id",
-                         "type":"int",
-                         "value":6
-                        }],
                  "rotation":0,
                  "type":"",
                  "visible":true,
-                 "width":20,
-                 "x":38.8181818181818,
-                 "y":452.272727272727
+                 "width":43,
+                 "x":336.333333333333,
+                 "y":542.333333333333
                 }],
          "opacity":1,
          "type":"objectgroup",
@@ -226,8 +189,8 @@
          "x":0,
          "y":0
         }],
- "nextlayerid":10,
- "nextobjectid":90,
+ "nextlayerid":11,
+ "nextobjectid":98,
  "orientation":"orthogonal",
  "renderorder":"right-down",
  "tiledversion":"1.11.2",
@@ -248,6 +211,14 @@
         {
          "firstgid":1041,
          "source":"items.tsx"
+        }, 
+        {
+         "firstgid":1048,
+         "source":"weapon_modifications.tsx"
+        }, 
+        {
+         "firstgid":1050,
+         "source":"Zombie.tsx"
         }],
  "tilewidth":32,
  "type":"map",

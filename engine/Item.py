@@ -3,11 +3,14 @@ import arcade
 from engine.AdvancedResources import *
 # from engine.Weapon import Weapon
 
+
 class Ammo(arcade.Sprite):
     PISTOL_BULLET = 0
     RIFLE_BULLET = 1
-    def __init__(self, path_or_texture, scale, center_x, center_y, angle, bullets, type_of_bullet):
+
+    def __init__(self, path_or_texture, scale, center_x, center_y, angle, bullets, type_of_bullet, item_id):
         super().__init__(path_or_texture, scale, center_x, center_y, angle)
+        self.item_id = item_id
         self.bullets = bullets
         self.type_of_bullet = type_of_bullet
         self.right_look = True
@@ -27,9 +30,13 @@ class Ammo(arcade.Sprite):
             return True
         return False
 
+    def copy(self):
+        return Ammo(self.texture, self.scale, 0, 0, 0, self.bullets, self.type_of_bullet, self.item_id)
+
 
 class Effect:
     """This class's objects are effects, that can be used and unused on a live creatures"""
+
     def __init__(self, power: Sequence[int], connected_to: Sequence[str]):
         """self.connected_to arguments must ..., for example check Player.hp"""
         self.power = power
@@ -38,16 +45,20 @@ class Effect:
 
     def use_on(self, entity):
         for param, power in zip(self.connected_to, self.power):
-            exec(f"entity.{param} = ValueWithSender(entity.{param} + power, self)")
+            exec(
+                f"entity.{param} = ValueWithSender(entity.{param} + power, self)")
         self.entity = entity
 
     def unuse(self):
         for param, power in zip(self.connected_to, self.power):
-            exec(f"self.entity.{param} = ValueWithSender(self.entity.{param} - power, self)")
+            exec(
+                f"self.entity.{param} = ValueWithSender(self.entity.{param} - power, self)")
+
 
 class TempEffectWithCancel(Effect):
     """Objects of this class are effects, that live 'duration' time, at start they '+' power to owner's attributes,
      at the end of their life they '-' power from owner's attributes"""
+
     def __init__(self, power: Sequence[int], connected_to: Sequence[str], duration: float):
         super().__init__(power, connected_to)
         self.duration = duration
@@ -64,9 +75,11 @@ class TempEffectWithCancel(Effect):
         self.entity.effects_with_duration.remove(self)
         arcade.unschedule(self.unuse)
 
+
 class MultipleTempEffect(TempEffectWithCancel):
     """Objects of this class are effects, that live 'duration' time and work with interval_between interval between
         an editing attributes, and don't cancel results"""
+
     def __init__(self, power: Sequence[int], connected_to: Sequence[str], duration: float, interval_between: float):
         super().__init__(power, connected_to, duration)
         self.interval_between = interval_between
@@ -86,8 +99,10 @@ class MultipleTempEffect(TempEffectWithCancel):
 
 class Item(arcade.Sprite):
     """This item is the base class for other items and is not intended for using in the game"""
-    def __init__(self, path_or_texture, scale, center_x, center_y, angle, effect):
+
+    def __init__(self, path_or_texture, scale, center_x, center_y, angle, effect, item_id):
         super().__init__(path_or_texture, scale, center_x, center_y, angle)
+        self.item_id = item_id
         self.right_look = True
         self.effect = effect
         self.is_available = True
@@ -98,21 +113,27 @@ class Item(arcade.Sprite):
             self.texture = self.texture.flip_horizontally()
             self.right_look = right_look
 
+    def copy(self):
+        return Item(self.texture, self.scale, 0, 0, 0, self.effect, self.item_id)
+
 
 class TemporaryItem(Item):
     """An item, that are not reusable"""
+
     def use(self, entity):
         self.effect.use_on(entity)
         entity.draw_list.remove(entity.inventory[entity.curr_item_index])
         entity.inventory[entity.curr_item_index] = None
+
 
 class EquippableItem(Item):
     """An item, that can be equipped and unequipped"""
     ANY = 0
     FOR_HEAD = 1
     FOR_BODY = 2
-    def __init__(self, path_or_texture, scale, center_x, center_y, angle, equip_place, effect):
-        super().__init__(path_or_texture, scale, center_x, center_y, angle, effect)
+
+    def __init__(self, path_or_texture, scale, center_x, center_y, angle, equip_place, effect, item_id):
+        super().__init__(path_or_texture, scale, center_x, center_y, angle, effect, item_id)
         self.equip_place = equip_place
 
     def use(self, entity):
@@ -121,8 +142,18 @@ class EquippableItem(Item):
         if not (self is entity.inventory[entity.curr_item_index]):
             entity.draw_list.insert(1, self)
 
-
     def unuse(self):
         """Unuses item effect"""
         self.effect.unuse()
         self.effect.entity.draw_list.remove(self)
+
+    def copy(self):
+        return EquippableItem(self.texture, self.scale, 0, 0, 0, self.equip_place, self.effect, self.item_id)
+
+
+class WeaponModification(Item):
+    def use(self, entity):
+        self.effect.use_on(entity)
+
+    def unuse(self):
+        self.effect.unuse()

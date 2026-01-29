@@ -8,6 +8,7 @@ class ValueWithSender:
         self.v = self.value
         self.s = self.sender
 
+
 class CharacterDrawList(arcade.SpriteList):
     def insert(self, index, to_insert):
         old_sprite_list = self.sprite_list
@@ -16,4 +17,3 @@ class CharacterDrawList(arcade.SpriteList):
             if i == index:
                 self.append(to_insert)
             self.append(el)
-

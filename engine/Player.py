@@ -1,4 +1,5 @@
 import arcade
+from arcade.hitbox import HitBoxAlgorithm
 
 from engine.Item import Effect
 from settings import (PLAYER_MAX_HP, PLAYER_JUMP_SPEED, PLAYER_WALK_SPEED, PLAYER_CLIMB_SPEED,
@@ -9,13 +10,16 @@ from settings import *
 from engine.AdvancedResources import *
 from engine.Weapon import Weapon
 from engine.Inventory import Inventory
+from engine.Game import *
 from engine.BaseLevel import *
 from math import asin, degrees, cos, sin, radians
 
 
 class Player(arcade.Sprite):
-    def __init__(self, path_or_texture, scale, center_x, center_y, hands_texture):
-        super().__init__(path_or_texture, scale, center_x, center_y, 0)
+    def __init__(self, path_or_texture: str, scale, center_x, center_y, hands_texture,
+                 walk_texture: str):
+        super().__init__(arcade.load_texture(path_or_texture,
+                                             hit_box_algorithm=arcade.hitbox.algo_detailed), scale, center_x, center_y, 0)
         self._hp = PLAYER_MAX_HP
         self.walk_speed = PLAYER_WALK_SPEED
         self.jump_speed = PLAYER_JUMP_SPEED
@@ -32,6 +36,7 @@ class Player(arcade.Sprite):
         self.right_look = True
         self.jumps = 0
         self._energy = PLAYER_MAX_ENERGY
+        self._energy_recovery_speed = PLAYER_ENERGY_RECOVERY_SPEED
         self.is_in_sprint = False
         self.physics_engine = None
         self.hands = arcade.Sprite(
@@ -46,6 +51,7 @@ class Player(arcade.Sprite):
                                    arcade.load_texture(
                                        INVENTORY_SLOT_ON_CHOICE_TEXTURE),
                                    arcade.load_texture(INVENTORY_SLOT_FOR_DROPPING_TEXTURE), self)
+        self.money = 0
         self._curr_item_index = 0
         self.curr_item_index = 0
         self.particle_systems = []
@@ -55,15 +61,28 @@ class Player(arcade.Sprite):
         self.can_press_q = True
         self.can_press_rmb = True
         self.can_press_mmb = True
+        self.can_press_m = True
         self.resistance = 0
-        self._brightness = 0
-        self.bright_control_sprite = arcade.Sprite(BRIGHT_CONTROL_TEXTURE, (SCREEN_WIDTH, SCREEN_HEIGHT),
-                                                   self.center_x, self.center_y)
-        self.brightness = ValueWithSender(2, None)
+        self.temp_draw_list = arcade.SpriteList()
         self.draw_list = CharacterDrawList()
         self.draw_list.append(self)
         self.draw_list.append(self.hands)
-        self.draw_list.append(self.bright_control_sprite)
+        # animations
+        self.walk_textures = [self.texture, arcade.load_texture(
+            walk_texture, hit_box_algorithm=arcade.hitbox.algo_detailed)]
+        self.walked_distance = 0
+        self.distance_per_step = self.walk_textures[1].width
+        self.curr_texture_index = 0
+        self.is_alive = True
+        self.death_timer = 0
+
+    @property
+    def energy_recovery_speed(self):
+        return self._energy_recovery_speed
+
+    @energy_recovery_speed.setter
+    def energy_recovery_speed(self, value: ValueWithSender):
+        self._energy_recovery_speed = value.v
 
     @property
     def curr_item_index(self):
@@ -90,8 +109,7 @@ class Player(arcade.Sprite):
             hp.v += (self._hp - hp.v) * self.resistance
         self._hp = PLAYER_MAX_HP if hp.v > PLAYER_MAX_HP else 0 if hp.v < 0 else hp.v
         if self._hp <= 0:
-            # self.kill()
-            pass
+            self.die()
 
     @property
     def sprint_cost(self):
@@ -112,21 +130,47 @@ class Player(arcade.Sprite):
 
     @property
     def brightness(self):
-        return self._brightness
+        return Game.bright_control_sprite_list[0].alpha
 
     @brightness.setter
     def brightness(self, value: ValueWithSender):
-        self._brightness = value.v
-        self.bright_control_sprite.alpha = 255 / self._brightness
+        Game.bright_control_sprite_list[0].alpha = 255 / value.v
+
+    def die(self):
+        if not self.is_alive:
+            return
+        self.is_alive = False
+        self.death_timer = 0
+        self.change_x = 0
+        self.change_y = 0
+        self.alpha = 200
+        arcade.schedule_once(
+            lambda x: Game.camp_level.window.show_view(Game.game_over_view), 1.0)
+
+    def update_animation(self, delta_time):
+        self.walked_distance += self.change_x * delta_time
+        if self.change_x != 0:
+            self.curr_texture_index = ((self.curr_texture_index + round(self.walked_distance // self.distance_per_step))
+                                       % len(self.walk_textures))
+            self.walked_distance = self.walked_distance % self.distance_per_step
+            self.texture = self.walk_textures[self.curr_texture_index]
+        else:
+            self.texture = self.walk_textures[0]
+            self.walked_distance = 0
 
     def update(self, keyboard, mouse, delta_time):
+        self.temp_draw_list.clear()
+        if not self.is_alive:
+            self.death_timer += delta_time
+            self.alpha = max(0, 200 - self.death_timer * 100)
+            return
         if self.jump_timer < PLAYER_JUMP_TIMEOUT:
             self.jump_timer += delta_time
         if self.is_in_sprint:
             self._energy -= self.sprint_cost * delta_time
         elif self._energy < PLAYER_MAX_ENERGY:
             self._energy = min((PLAYER_MAX_ENERGY, self._energy
-                                + PLAYER_ENERGY_RECOVERY_SPEED * delta_time))
+                                + self.energy_recovery_speed * delta_time))
         self.is_in_sprint = False
         is_on_ladder = self.physics_engine.is_on_ladder()
         can_jump = self.physics_engine.can_jump(1)
@@ -174,6 +218,7 @@ class Player(arcade.Sprite):
                 and is_on_ladder and self._energy >= PLAYER_SPRINT_COST * delta_time):
             self.change_y *= PLAYER_SPRINT_K
             self.is_in_sprint = True
+        self.update_animation(delta_time)
         self.change_x *= delta_time
         if is_on_ladder:
             self.change_y *= delta_time
@@ -182,7 +227,10 @@ class Player(arcade.Sprite):
         if is_on_ladder:
             self.change_y = 0
         if (self.change_x > 0 and not self.right_look) or (self.change_x < 0 and self.right_look):
-            self.texture = self.texture.flip_horizontally()
+            self.walked_distance = 0
+            self.curr_texture_index = 0
+            self.walk_textures = [el.flip_horizontally()
+                                  for el in self.walk_textures]
             self.hands.texture = self.hands.texture.flip_horizontally()
             old_right_look = self.right_look
             self.right_look = self.change_x > 0
@@ -191,7 +239,8 @@ class Player(arcade.Sprite):
             for i in range(self.inventory.equipped_size):
                 if self.inventory[i] is not None:
                     if self.inventory[i].right_look != self.right_look:
-                        self.inventory[i].texture = self.inventory[i].texture.flip_horizontally()
+                        self.inventory[i].texture = self.inventory[i].texture.flip_horizontally(
+                        )
                         self.inventory[i].right_look = self.right_look
         self.hands.center_x = self.center_x - 4.5 * \
             self.scale[0] * (1 if self.right_look else -1)
@@ -222,6 +271,9 @@ class Player(arcade.Sprite):
             if self.inventory[self.curr_item_index] not in self.draw_list:
                 self.draw_list.insert(1, self.inventory[self.curr_item_index])
             if isinstance(self.inventory[self.curr_item_index], Weapon):
+                if self.inventory[self.curr_item_index].modification is not None:
+                    self.temp_draw_list.append(
+                        self.inventory[self.curr_item_index].modification)
                 if self.inventory[self.curr_item_index].smoke is not None:
                     self.particle_systems.append(
                         self.inventory[self.curr_item_index].smoke)
@@ -229,6 +281,11 @@ class Player(arcade.Sprite):
                 if mouse["MIDDLE"]:
                     if self.can_press_mmb:
                         self.inventory[self.curr_item_index].change_shooting_mode()
+                        (Game.levels[Game.current_level] if not self.in_camp
+                         else Game.camp_level).show_temp_message(
+                            f"Current strike mode is {self.inventory[self.curr_item_index].
+                                                      max_strikes_per_click[self.inventory[self.curr_item_index].
+                                                                            curr_max_strikes_per_click_index]} rounds per hold", 1)
                         self.can_press_mmb = False
                 else:
                     self.can_press_mmb = True
@@ -237,12 +294,38 @@ class Player(arcade.Sprite):
                     for i, el in enumerate(self.inventory):
                         if isinstance(el, Ammo) \
                            and el.load_in(self.inventory[self.curr_item_index]):
+                            (Game.levels[Game.current_level] if not self.in_camp
+                             else Game.camp_level).show_temp_message("Recharging is in process",
+                                                                     self.inventory[self.curr_item_index].recharging_period)
                             if el.bullets == 0:
                                 self.inventory[i] = None
                             break
                     else:
-                        (BaseLevel.levels[BaseLevel.current_level] if not self.in_camp
-                            else BaseLevel.camp_level).show_temp_message("No ammo in inventory", 2)
+                        (Game.levels[Game.current_level] if not self.in_camp
+                            else Game.camp_level).show_temp_message("No ammo in inventory", 2)
+                if keyboard["M"]:
+                    if self.can_press_m:
+                        if self.inventory[self.curr_item_index].modification is not None:
+                            self.level_items.append(
+                                self.inventory[self.curr_item_index].modification)
+                            Game.levels[Game.current_level].drop(
+                                self.inventory[self.curr_item_index].modification)
+                            self.inventory[self.curr_item_index].modification.unuse(
+                            )
+                            self.inventory[self.curr_item_index].modification = None
+                            (Game.levels[Game.current_level] if not self.in_camp
+                             else Game.camp_level).show_temp_message("Modification unused and dropped", 2)
+                        else:
+                            for i, el in enumerate(arcade.check_for_collision_with_list(self, self.level_items)):
+                                if el.item_id in WEAPON_MODIFICATIONS_ID:
+                                    self.inventory[self.curr_item_index].modification = el
+                                    el.use(
+                                        self.inventory[self.curr_item_index])
+                                    self.level_items.remove(el)
+                                    break
+                        self.can_press_m = False
+                else:
+                    self.can_press_m = True
             self.inventory[self.curr_item_index].update(delta_time)
             self.inventory[self.curr_item_index].set_angle(self.hands.angle + 90 * (1 if self.right_look else -1),
                                                            self.right_look, self.hands)
@@ -256,13 +339,14 @@ class Player(arcade.Sprite):
                                                              * (1 if self.right_look else -1))
         for i, el in enumerate(self.inventory[0:self.inventory.equipped_size]):
             if el is not None:
-                el.center_y = self.center_y + self.inventory.equipment_slots[i][3]
+                el.center_y = self.center_y + \
+                    self.inventory.equipment_slots[i][3]
                 el.center_x = self.center_x + \
-                    self.inventory.equipment_slots[i][2] * (1 if self.inventory[i].right_look else -1)
+                    self.inventory.equipment_slots[i][2] * \
+                    (1 if self.inventory[i].right_look else -1)
         if (keyboard["E"] and self.inventory[self._curr_item_index] is not None
                 and isinstance(self.inventory[self._curr_item_index], Item)):
             self.inventory[self._curr_item_index].use(self)
-        self.bright_control_sprite.position = self.position
         if mouse["SCROLL"] != 0:
             self.curr_item_index = self.curr_item_index + mouse["SCROLL"]
             mouse["SCROLL"] = 0
@@ -274,12 +358,14 @@ class Player(arcade.Sprite):
         if keyboard["Q"]:
             if self.can_press_q:
                 self.can_press_q = False
-                BaseLevel.game_on_pause = True
+                Game.game_on_pause = True
+                for i in keyboard.keys():
+                    keyboard[i] = False
                 if self.in_camp:
-                    self.inventory.return_to = BaseLevel.camp_level
+                    self.inventory.return_to = Game.camp_level
                 else:
-                    self.inventory.return_to = BaseLevel.levels[BaseLevel.current_level]
-                BaseLevel.levels[BaseLevel.current_level].window.show_view(
+                    self.inventory.return_to = Game.levels[Game.current_level]
+                Game.levels[Game.current_level].window.show_view(
                     self.inventory)
         else:
             self.can_press_q = True
